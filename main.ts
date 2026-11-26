@@ -3,8 +3,8 @@ import { App, Plugin, PluginSettingTab, Setting, WorkspaceSidedock, ButtonCompon
 interface AutoHideSettings {
 	expandSidebar_onClickRibbon: boolean;
 	expandSidebar_onClickNoteTitle: boolean;
-	expandSidebar_onDoubleClickRightEdge: boolean;
-	rightEdgeDoubleClickDistance: number;
+	expandSidebar_onClickRightEdge: boolean;
+	rightEdgeClickDistance: number;
 	lockSidebar: boolean;
 	leftPinActive: boolean;
 	rightPinActive: boolean;
@@ -13,8 +13,8 @@ interface AutoHideSettings {
 const DEFAULT_SETTINGS: AutoHideSettings = {
 	expandSidebar_onClickRibbon: false,
 	expandSidebar_onClickNoteTitle: false,
-	expandSidebar_onDoubleClickRightEdge: false,
-	rightEdgeDoubleClickDistance: 80,
+	expandSidebar_onClickRightEdge: false,
+	rightEdgeClickDistance: 32,
 	lockSidebar: false,
 	leftPinActive: false,
 	rightPinActive: false
@@ -136,9 +136,9 @@ export default class AutoHidePlugin extends Plugin {
 			}
 		});
 
-		// Double-click near the right edge of the workspace to expand the right sidebar (Optional).
-		this.registerDomEvent(this.app.workspace.containerEl, 'dblclick', (evt: MouseEvent) => {
-			if (!this.settings.expandSidebar_onDoubleClickRightEdge) {
+		// Click near the right edge of the workspace to expand the right sidebar (Optional).
+		this.registerDomEvent(this.app.workspace.containerEl, 'click', (evt: MouseEvent) => {
+			if (!this.settings.expandSidebar_onClickRightEdge) {
 				return;
 			}
 			// Only trigger from the editor/viewer area, not from the sidebars or ribbons.
@@ -150,7 +150,7 @@ export default class AutoHidePlugin extends Plugin {
 			}
 			const workspaceRect = this.app.workspace.containerEl.getBoundingClientRect();
 			const distanceFromRightEdge = workspaceRect.right - evt.clientX;
-			if (distanceFromRightEdge < 0 || distanceFromRightEdge > this.settings.rightEdgeDoubleClickDistance) {
+			if (distanceFromRightEdge < 0 || distanceFromRightEdge > this.settings.rightEdgeClickDistance) {
 				return;
 			}
 			this.rightSplit.expand();
@@ -246,29 +246,29 @@ class AutoHideSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 		new Setting(containerEl)
-			.setName('Expand the right sidebar with a double-click near the right edge')
-			.setDesc('Double-click in the note area close to the right edge to expand the right sidebar.')
+			.setName('Expand the right sidebar with a click near the right edge')
+			.setDesc('Click in the note area close to the right edge to expand the right sidebar.')
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.expandSidebar_onDoubleClickRightEdge)
+				.setValue(this.plugin.settings.expandSidebar_onClickRightEdge)
 				.onChange(async (value) => {
-					this.plugin.settings.expandSidebar_onDoubleClickRightEdge = value;
+					this.plugin.settings.expandSidebar_onClickRightEdge = value;
 					await this.plugin.saveSettings();
 				}));
 		new Setting(containerEl)
-			.setName('Right-edge double-click distance (px)')
+			.setName('Right-edge click distance (px)')
 			.setDesc('Maximum distance from the right edge of the workspace, in pixels.')
 			.addText(text => {
 				text.inputEl.type = 'number';
 				text.inputEl.min = '0';
 				text.inputEl.step = '1';
-				text.setPlaceholder('80')
-					.setValue(String(this.plugin.settings.rightEdgeDoubleClickDistance))
+				text.setPlaceholder('32')
+					.setValue(String(this.plugin.settings.rightEdgeClickDistance))
 					.onChange(async (value) => {
 						const distance = Number(value);
 						if (!Number.isFinite(distance) || distance < 0) {
 							return;
 						}
-						this.plugin.settings.rightEdgeDoubleClickDistance = distance;
+						this.plugin.settings.rightEdgeClickDistance = distance;
 						await this.plugin.saveSettings();
 					});
 			});
