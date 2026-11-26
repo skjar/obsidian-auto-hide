@@ -141,8 +141,9 @@ export default class AutoHidePlugin extends Plugin {
 			if (!this.settings.expandSidebar_onClickRightEdge) {
 				return;
 			}
-			// Only trigger from the editor/viewer area, not from the sidebars or ribbons.
-			if (!this.rootSplitEl.contains(evt.target as Node)) {
+			// Only trigger from the view content of the editor/viewer, not from toolbars, sidebars or ribbons.
+			const viewContent = (evt.target as HTMLElement).closest(".view-content");
+			if (viewContent == null || !this.rootSplitEl.contains(viewContent)) {
 				return;
 			}
 			if (this.rightSplit.collapsed == false) {
