@@ -16,9 +16,9 @@ const DEFAULT_SETTINGS: AutoHideSettings = {
 	expandSidebar_onClickRibbon: false,
 	expandSidebar_onClickNoteTitle: false,
 	expandSidebar_onClickLeftEdge: false,
-	leftEdgeClickDistance: 32,
+	leftEdgeClickDistance: 50,
 	expandSidebar_onClickRightEdge: false,
-	rightEdgeClickDistance: 32,
+	rightEdgeClickDistance: 50,
 	lockSidebar: false,
 	leftPinActive: false,
 	rightPinActive: false
@@ -285,10 +285,7 @@ class AutoHideSettingTab extends PluginSettingTab {
 			.setDesc('Maximum distance from the left edge of the editor area, in pixels.')
 			.addText(text => {
 				text.inputEl.type = 'number';
-				text.inputEl.min = '0';
-				text.inputEl.step = '1';
-				text.setPlaceholder('32')
-					.setValue(String(this.plugin.settings.leftEdgeClickDistance))
+				text.setValue(String(this.plugin.settings.leftEdgeClickDistance))
 					.onChange(async (value) => {
 						const distance = Number(value);
 						if (!Number.isFinite(distance) || distance < 0) {
@@ -312,10 +309,7 @@ class AutoHideSettingTab extends PluginSettingTab {
 			.setDesc('Maximum distance from the right edge of the editor area, in pixels.')
 			.addText(text => {
 				text.inputEl.type = 'number';
-				text.inputEl.min = '0';
-				text.inputEl.step = '1';
-				text.setPlaceholder('32')
-					.setValue(String(this.plugin.settings.rightEdgeClickDistance))
+				text.setValue(String(this.plugin.settings.rightEdgeClickDistance))
 					.onChange(async (value) => {
 						const distance = Number(value);
 						if (!Number.isFinite(distance) || distance < 0) {
