@@ -1,4 +1,4 @@
-# README
+# Obsidian Auto Hide Plugin
 
 This plugin enables you to collapse (and expand) the sidebar easier.
 
@@ -13,6 +13,7 @@ This plugin enables you to collapse (and expand) the sidebar easier.
 - If you turn on the options, you can expand the sidebar in the following ways
     - Click on the blank area of the left ribbon.
     - Click on the note title.
-    - Click near the right edge of the workspace (distance is configurable in pixels).
+    - Click near the left edge of the editor area (distance is configurable in pixels).
+    - Click near the right edge of the editor area (distance is configurable in pixels).
 
 ![demo2](https://user-images.githubusercontent.com/97661658/184786906-ba29ca56-9d06-48c1-a148-3c8e6b503d6d.gif)

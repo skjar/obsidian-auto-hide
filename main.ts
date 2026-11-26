@@ -3,6 +3,8 @@ import { App, Plugin, PluginSettingTab, Setting, WorkspaceSidedock, ButtonCompon
 interface AutoHideSettings {
 	expandSidebar_onClickRibbon: boolean;
 	expandSidebar_onClickNoteTitle: boolean;
+	expandSidebar_onClickLeftEdge: boolean;
+	leftEdgeClickDistance: number;
 	expandSidebar_onClickRightEdge: boolean;
 	rightEdgeClickDistance: number;
 	lockSidebar: boolean;
@@ -13,6 +15,8 @@ interface AutoHideSettings {
 const DEFAULT_SETTINGS: AutoHideSettings = {
 	expandSidebar_onClickRibbon: false,
 	expandSidebar_onClickNoteTitle: false,
+	expandSidebar_onClickLeftEdge: false,
+	leftEdgeClickDistance: 32,
 	expandSidebar_onClickRightEdge: false,
 	rightEdgeClickDistance: 32,
 	lockSidebar: false,
@@ -136,7 +140,28 @@ export default class AutoHidePlugin extends Plugin {
 			}
 		});
 
-		// Click near the right edge of the workspace to expand the right sidebar (Optional).
+		// Click near the left edge of the editor area to expand the left sidebar (Optional).
+		this.registerDomEvent(this.app.workspace.containerEl, 'click', (evt: MouseEvent) => {
+			if (!this.settings.expandSidebar_onClickLeftEdge) {
+				return;
+			}
+			// Only trigger from the view content of the editor/viewer, not from toolbars, sidebars or ribbons.
+			const viewContent = (evt.target as HTMLElement).closest(".view-content");
+			if (viewContent == null || !this.rootSplitEl.contains(viewContent)) {
+				return;
+			}
+			if (this.leftSplit.collapsed == false) {
+				return;
+			}
+			const rootRect = this.rootSplitEl.getBoundingClientRect();
+			const distanceFromLeftEdge = evt.clientX - rootRect.left;
+			if (distanceFromLeftEdge < 0 || distanceFromLeftEdge > this.settings.leftEdgeClickDistance) {
+				return;
+			}
+			this.leftSplit.expand();
+		});
+
+		// Click near the right edge of the editor area to expand the right sidebar (Optional).
 		this.registerDomEvent(this.app.workspace.containerEl, 'click', (evt: MouseEvent) => {
 			if (!this.settings.expandSidebar_onClickRightEdge) {
 				return;
@@ -149,8 +174,8 @@ export default class AutoHidePlugin extends Plugin {
 			if (this.rightSplit.collapsed == false) {
 				return;
 			}
-			const workspaceRect = this.app.workspace.containerEl.getBoundingClientRect();
-			const distanceFromRightEdge = workspaceRect.right - evt.clientX;
+			const rootRect = this.rootSplitEl.getBoundingClientRect();
+			const distanceFromRightEdge = rootRect.right - evt.clientX;
 			if (distanceFromRightEdge < 0 || distanceFromRightEdge > this.settings.rightEdgeClickDistance) {
 				return;
 			}
@@ -247,6 +272,33 @@ class AutoHideSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 		new Setting(containerEl)
+			.setName('Expand the left sidebar with a click near the left edge')
+			.setDesc('Click in the note area close to the left edge to expand the left sidebar.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.expandSidebar_onClickLeftEdge)
+				.onChange(async (value) => {
+					this.plugin.settings.expandSidebar_onClickLeftEdge = value;
+					await this.plugin.saveSettings();
+				}));
+		new Setting(containerEl)
+			.setName('Left-edge click distance (px)')
+			.setDesc('Maximum distance from the left edge of the editor area, in pixels.')
+			.addText(text => {
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0';
+				text.inputEl.step = '1';
+				text.setPlaceholder('32')
+					.setValue(String(this.plugin.settings.leftEdgeClickDistance))
+					.onChange(async (value) => {
+						const distance = Number(value);
+						if (!Number.isFinite(distance) || distance < 0) {
+							return;
+						}
+						this.plugin.settings.leftEdgeClickDistance = distance;
+						await this.plugin.saveSettings();
+					});
+			});
+		new Setting(containerEl)
 			.setName('Expand the right sidebar with a click near the right edge')
 			.setDesc('Click in the note area close to the right edge to expand the right sidebar.')
 			.addToggle(toggle => toggle
@@ -257,7 +309,7 @@ class AutoHideSettingTab extends PluginSettingTab {
 				}));
 		new Setting(containerEl)
 			.setName('Right-edge click distance (px)')
-			.setDesc('Maximum distance from the right edge of the workspace, in pixels.')
+			.setDesc('Maximum distance from the right edge of the editor area, in pixels.')
 			.addText(text => {
 				text.inputEl.type = 'number';
 				text.inputEl.min = '0';
