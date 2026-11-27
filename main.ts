@@ -1,9 +1,16 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceSidedock, ButtonComponent, addIcon } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, WorkspaceSidedock, ButtonComponent, addIcon, setIcon } from 'obsidian';
+
+type SidebarSplit = WorkspaceSidedock & { containerEl?: HTMLElement };
 
 interface AutoHideSettings {
 	expandSidebar_onClickRibbon: boolean;
 	expandSidebar_onClickNoteTitle: boolean;
+	expandSidebar_onClickLeftEdge: boolean;
+	leftEdgeClickDistance: number;
+	expandSidebar_onClickRightEdge: boolean;
+	rightEdgeClickDistance: number;
 	lockSidebar: boolean;
+	lockSidebar_onDoubleClick: boolean;
 	leftPinActive: boolean;
 	rightPinActive: boolean;
 }
@@ -11,7 +18,12 @@ interface AutoHideSettings {
 const DEFAULT_SETTINGS: AutoHideSettings = {
 	expandSidebar_onClickRibbon: false,
 	expandSidebar_onClickNoteTitle: false,
+	expandSidebar_onClickLeftEdge: false,
+	leftEdgeClickDistance: 50,
+	expandSidebar_onClickRightEdge: false,
+	rightEdgeClickDistance: 50,
 	lockSidebar: false,
+	lockSidebar_onDoubleClick: false,
 	leftPinActive: false,
 	rightPinActive: false
 }
@@ -131,6 +143,68 @@ export default class AutoHidePlugin extends Plugin {
 				}
 			}
 		});
+
+		// Click near the left edge of the editor area to expand the left sidebar (Optional).
+		this.registerDomEvent(this.app.workspace.containerEl, 'click', (evt: MouseEvent) => {
+			if (!this.settings.expandSidebar_onClickLeftEdge) {
+				return;
+			}
+			// Only trigger from the view content of the editor/viewer, not from toolbars, sidebars or ribbons.
+			const viewContent = (evt.target as HTMLElement).closest(".view-content");
+			if (viewContent == null || !this.rootSplitEl.contains(viewContent)) {
+				return;
+			}
+			if (this.leftSplit.collapsed == false) {
+				return;
+			}
+			const rootRect = this.rootSplitEl.getBoundingClientRect();
+			const distanceFromLeftEdge = evt.clientX - rootRect.left;
+			if (distanceFromLeftEdge < 0 || distanceFromLeftEdge > this.settings.leftEdgeClickDistance) {
+				return;
+			}
+			this.leftSplit.expand();
+		});
+
+		// Click near the right edge of the editor area to expand the right sidebar (Optional).
+		this.registerDomEvent(this.app.workspace.containerEl, 'click', (evt: MouseEvent) => {
+			if (!this.settings.expandSidebar_onClickRightEdge) {
+				return;
+			}
+			// Only trigger from the view content of the editor/viewer, not from toolbars, sidebars or ribbons.
+			const viewContent = (evt.target as HTMLElement).closest(".view-content");
+			if (viewContent == null || !this.rootSplitEl.contains(viewContent)) {
+				return;
+			}
+			if (this.rightSplit.collapsed == false) {
+				return;
+			}
+			const rootRect = this.rootSplitEl.getBoundingClientRect();
+			const distanceFromRightEdge = rootRect.right - evt.clientX;
+			if (distanceFromRightEdge < 0 || distanceFromRightEdge > this.settings.rightEdgeClickDistance) {
+				return;
+			}
+			this.rightSplit.expand();
+		});
+
+		this.registerDomEvent(document, 'dblclick', async ({ target }) => {
+			if (!this.settings.lockSidebar_onDoubleClick || !(target instanceof Node)) {
+				return;
+			}
+
+			const sidebars: SidebarSplit[] = [this.leftSplit, this.rightSplit];
+			const sidebar = sidebars.find(split => split.containerEl?.contains(target));
+			if (!sidebar) {
+				return;
+			}
+
+			const key = sidebar === this.leftSplit ? 'leftPinActive' : 'rightPinActive';
+			this.settings[key] = !this.settings[key];
+			const button = sidebar.containerEl?.querySelector<HTMLElement>('.auto-hide-button');
+			if (button) {
+				setIcon(button, this.settings[key] ? 'oah-filled-pin' : 'oah-pin');
+			}
+			await this.saveSettings();
+		});
 	}
 
 	// Feature: pane locking
@@ -221,6 +295,54 @@ class AutoHideSettingTab extends PluginSettingTab {
 					this.plugin.settings.expandSidebar_onClickNoteTitle = value;
 					await this.plugin.saveSettings();
 				}));
+		new Setting(containerEl)
+			.setName('Expand the left sidebar with a click near the left edge')
+			.setDesc('Click in the note area close to the left edge to expand the left sidebar.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.expandSidebar_onClickLeftEdge)
+				.onChange(async (value) => {
+					this.plugin.settings.expandSidebar_onClickLeftEdge = value;
+					await this.plugin.saveSettings();
+				}));
+		new Setting(containerEl)
+			.setName('Left-edge click distance (px)')
+			.setDesc('Maximum distance from the left edge of the editor area, in pixels.')
+			.addText(text => {
+				text.inputEl.type = 'number';
+				text.setValue(String(this.plugin.settings.leftEdgeClickDistance))
+					.onChange(async (value) => {
+						const distance = Number(value);
+						if (!Number.isFinite(distance) || distance < 0) {
+							return;
+						}
+						this.plugin.settings.leftEdgeClickDistance = distance;
+						await this.plugin.saveSettings();
+					});
+			});
+		new Setting(containerEl)
+			.setName('Expand the right sidebar with a click near the right edge')
+			.setDesc('Click in the note area close to the right edge to expand the right sidebar.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.expandSidebar_onClickRightEdge)
+				.onChange(async (value) => {
+					this.plugin.settings.expandSidebar_onClickRightEdge = value;
+					await this.plugin.saveSettings();
+				}));
+		new Setting(containerEl)
+			.setName('Right-edge click distance (px)')
+			.setDesc('Maximum distance from the right edge of the editor area, in pixels.')
+			.addText(text => {
+				text.inputEl.type = 'number';
+				text.setValue(String(this.plugin.settings.rightEdgeClickDistance))
+					.onChange(async (value) => {
+						const distance = Number(value);
+						if (!Number.isFinite(distance) || distance < 0) {
+							return;
+						}
+						this.plugin.settings.rightEdgeClickDistance = distance;
+						await this.plugin.saveSettings();
+					});
+			});
 		containerEl.createEl('h4', { text: 'EXPERIMENTAL!' });
 		new Setting(containerEl)
 			.setName('Lock sidebar collapse')
@@ -231,6 +353,15 @@ class AutoHideSettingTab extends PluginSettingTab {
 					this.plugin.settings.lockSidebar = value;
 					await this.plugin.saveSettings();
 					this.plugin.togglePins();
+				}));
+		new Setting(containerEl)
+			.setName('Lock sidebar with a double-click')
+			.setDesc('Double-click inside a sidebar to temporarily lock the sidebar collapse. Double-click again to unlock it.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.lockSidebar_onDoubleClick)
+				.onChange(async (value) => {
+					this.plugin.settings.lockSidebar_onDoubleClick = value;
+					await this.plugin.saveSettings();
 				}));
 	}
 }
