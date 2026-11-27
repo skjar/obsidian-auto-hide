@@ -1,4 +1,6 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceSidedock, ButtonComponent, addIcon } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, WorkspaceSidedock, ButtonComponent, addIcon, setIcon } from 'obsidian';
+
+type SidebarSplit = WorkspaceSidedock & { containerEl?: HTMLElement };
 
 interface AutoHideSettings {
 	expandSidebar_onClickRibbon: boolean;
@@ -8,6 +10,7 @@ interface AutoHideSettings {
 	expandSidebar_onClickRightEdge: boolean;
 	rightEdgeClickDistance: number;
 	lockSidebar: boolean;
+	lockSidebar_onDoubleClick: boolean;
 	leftPinActive: boolean;
 	rightPinActive: boolean;
 }
@@ -20,6 +23,7 @@ const DEFAULT_SETTINGS: AutoHideSettings = {
 	expandSidebar_onClickRightEdge: false,
 	rightEdgeClickDistance: 50,
 	lockSidebar: false,
+	lockSidebar_onDoubleClick: false,
 	leftPinActive: false,
 	rightPinActive: false
 }
@@ -181,6 +185,26 @@ export default class AutoHidePlugin extends Plugin {
 			}
 			this.rightSplit.expand();
 		});
+
+		this.registerDomEvent(document, 'dblclick', async ({ target }) => {
+			if (!this.settings.lockSidebar_onDoubleClick || !(target instanceof Node)) {
+				return;
+			}
+
+			const sidebars: SidebarSplit[] = [this.leftSplit, this.rightSplit];
+			const sidebar = sidebars.find(split => split.containerEl?.contains(target));
+			if (!sidebar) {
+				return;
+			}
+
+			const key = sidebar === this.leftSplit ? 'leftPinActive' : 'rightPinActive';
+			this.settings[key] = !this.settings[key];
+			const button = sidebar.containerEl?.querySelector<HTMLElement>('.auto-hide-button');
+			if (button) {
+				setIcon(button, this.settings[key] ? 'oah-filled-pin' : 'oah-pin');
+			}
+			await this.saveSettings();
+		});
 	}
 
 	// Feature: pane locking
@@ -329,6 +353,15 @@ class AutoHideSettingTab extends PluginSettingTab {
 					this.plugin.settings.lockSidebar = value;
 					await this.plugin.saveSettings();
 					this.plugin.togglePins();
+				}));
+		new Setting(containerEl)
+			.setName('Lock sidebar with a double-click')
+			.setDesc('Double-click inside a sidebar to temporarily lock the sidebar collapse. Double-click again to unlock it.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.lockSidebar_onDoubleClick)
+				.onChange(async (value) => {
+					this.plugin.settings.lockSidebar_onDoubleClick = value;
+					await this.plugin.saveSettings();
 				}));
 	}
 }
