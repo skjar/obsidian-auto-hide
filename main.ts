@@ -144,46 +144,33 @@ export default class AutoHidePlugin extends Plugin {
 			}
 		});
 
-		// Click near the left edge of the editor area to expand the left sidebar (Optional).
+		// Click near the left / right edge of the editor area to expand the corresponding sidebar (Optional).
 		this.registerDomEvent(this.app.workspace.containerEl, 'click', (evt: MouseEvent) => {
-			if (!this.settings.expandSidebar_onClickLeftEdge) {
+			const settings = this.settings;
+			if (!settings.expandSidebar_onClickLeftEdge && !settings.expandSidebar_onClickRightEdge) {
+				return;
+			}
+			// Selecting text and releasing the mouse over the blank area also fires a
+			// click; a non-collapsed selection means the gesture was a drag, not a click.
+			if (document.getSelection()?.isCollapsed === false) {
 				return;
 			}
 			// Only trigger from the view content of the editor/viewer, not from toolbars, sidebars or ribbons.
 			const viewContent = (evt.target as HTMLElement).closest(".view-content");
 			if (viewContent == null || !this.rootSplitEl.contains(viewContent)) {
-				return;
-			}
-			if (this.leftSplit.collapsed == false) {
 				return;
 			}
 			const rootRect = this.rootSplitEl.getBoundingClientRect();
 			const distanceFromLeftEdge = evt.clientX - rootRect.left;
-			if (distanceFromLeftEdge < 0 || distanceFromLeftEdge > this.settings.leftEdgeClickDistance) {
-				return;
-			}
-			this.leftSplit.expand();
-		});
-
-		// Click near the right edge of the editor area to expand the right sidebar (Optional).
-		this.registerDomEvent(this.app.workspace.containerEl, 'click', (evt: MouseEvent) => {
-			if (!this.settings.expandSidebar_onClickRightEdge) {
-				return;
-			}
-			// Only trigger from the view content of the editor/viewer, not from toolbars, sidebars or ribbons.
-			const viewContent = (evt.target as HTMLElement).closest(".view-content");
-			if (viewContent == null || !this.rootSplitEl.contains(viewContent)) {
-				return;
-			}
-			if (this.rightSplit.collapsed == false) {
-				return;
-			}
-			const rootRect = this.rootSplitEl.getBoundingClientRect();
 			const distanceFromRightEdge = rootRect.right - evt.clientX;
-			if (distanceFromRightEdge < 0 || distanceFromRightEdge > this.settings.rightEdgeClickDistance) {
-				return;
+
+			if (settings.expandSidebar_onClickLeftEdge && this.leftSplit.collapsed
+				&& distanceFromLeftEdge >= 0 && distanceFromLeftEdge <= settings.leftEdgeClickDistance) {
+				this.leftSplit.expand();
+			} else if (settings.expandSidebar_onClickRightEdge && this.rightSplit.collapsed
+				&& distanceFromRightEdge >= 0 && distanceFromRightEdge <= settings.rightEdgeClickDistance) {
+				this.rightSplit.expand();
 			}
-			this.rightSplit.expand();
 		});
 
 		this.registerDomEvent(document, 'dblclick', async ({ target }) => {
