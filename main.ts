@@ -111,6 +111,14 @@ export default class AutoHidePlugin extends Plugin {
 				return;
 			}
 
+			// Click near the left / right edge of the editor area to expand the corresponding sidebar (Optional).
+			// Must be handled before the collapse logic below: otherwise a click inside the edge zone first
+			// collapses the sidebar and then re-expands it, causing a collapse-then-expand flicker.
+			// When the sidebar is already expanded this returns false and the collapse logic still runs.
+			if (this.handleEdgeClick(evt)) {
+				return;
+			}
+
 			// Click on the note title to expand the left sidebar (Optional).
 			if (evt.target.classList.contains("view-header-title") && this.settings.expandSidebar_onClickNoteTitle) {
 				if (this.leftSplit.collapsed == true) this.leftSplit.expand();
@@ -144,49 +152,7 @@ export default class AutoHidePlugin extends Plugin {
 			}
 		});
 
-		// Click near the left edge of the editor area to expand the left sidebar (Optional).
-		this.registerDomEvent(this.app.workspace.containerEl, 'click', (evt: MouseEvent) => {
-			if (!this.settings.expandSidebar_onClickLeftEdge) {
-				return;
-			}
-			// Only trigger from the view content of the editor/viewer, not from toolbars, sidebars or ribbons.
-			const viewContent = (evt.target as HTMLElement).closest(".view-content");
-			if (viewContent == null || !this.rootSplitEl.contains(viewContent)) {
-				return;
-			}
-			if (this.leftSplit.collapsed == false) {
-				return;
-			}
-			const rootRect = this.rootSplitEl.getBoundingClientRect();
-			const distanceFromLeftEdge = evt.clientX - rootRect.left;
-			if (distanceFromLeftEdge < 0 || distanceFromLeftEdge > this.settings.leftEdgeClickDistance) {
-				return;
-			}
-			this.leftSplit.expand();
-		});
-
-		// Click near the right edge of the editor area to expand the right sidebar (Optional).
-		this.registerDomEvent(this.app.workspace.containerEl, 'click', (evt: MouseEvent) => {
-			if (!this.settings.expandSidebar_onClickRightEdge) {
-				return;
-			}
-			// Only trigger from the view content of the editor/viewer, not from toolbars, sidebars or ribbons.
-			const viewContent = (evt.target as HTMLElement).closest(".view-content");
-			if (viewContent == null || !this.rootSplitEl.contains(viewContent)) {
-				return;
-			}
-			if (this.rightSplit.collapsed == false) {
-				return;
-			}
-			const rootRect = this.rootSplitEl.getBoundingClientRect();
-			const distanceFromRightEdge = rootRect.right - evt.clientX;
-			if (distanceFromRightEdge < 0 || distanceFromRightEdge > this.settings.rightEdgeClickDistance) {
-				return;
-			}
-			this.rightSplit.expand();
-		});
-
-		this.registerDomEvent(document, 'dblclick', async ({ target }) => {
+		this.registerDomEvent(this.app.workspace.containerEl, 'dblclick', async ({ target }) => {
 			if (!this.settings.lockSidebar_onDoubleClick || !(target instanceof Node)) {
 				return;
 			}
@@ -205,6 +171,51 @@ export default class AutoHidePlugin extends Plugin {
 			}
 			await this.saveSettings();
 		});
+	}
+
+	/**
+	 * Expands the sidebar whose edge zone the click landed in, but only while it is collapsed.
+	 * Returns true when the click was consumed (i.e. the sidebar was just expanded), so the caller
+	 * skips its collapse logic. When the sidebar is already open the click is left untouched
+	 * (returns false) and the caller's regular collapse logic closes it.
+	 */
+	handleEdgeClick(evt: MouseEvent): boolean {
+		const settings = this.settings;
+		if (!settings.expandSidebar_onClickLeftEdge && !settings.expandSidebar_onClickRightEdge) {
+			return false;
+		}
+		if (!(evt.target instanceof HTMLElement) || !this.rootSplitEl.contains(evt.target)) {
+			return false;
+		}
+		// The view header has its own click handling (e.g. expanding via the note title).
+		if (evt.target.closest(".view-header") !== null) {
+			return false;
+		}
+		// Selecting text and releasing the mouse over the blank area also fires a
+		// click; a non-collapsed selection means the gesture was a drag, not a click.
+		if (document.getSelection()?.isCollapsed === false) {
+			return false;
+		}
+
+		const rootRect = this.rootSplitEl.getBoundingClientRect();
+		const distanceFromLeftEdge = evt.clientX - rootRect.left;
+		const distanceFromRightEdge = rootRect.right - evt.clientX;
+
+		if (settings.expandSidebar_onClickLeftEdge
+			&& distanceFromLeftEdge >= 0 && distanceFromLeftEdge <= settings.leftEdgeClickDistance) {
+			// Already expanded: fall through to the caller's collapse logic.
+			if (!this.leftSplit.collapsed) return false;
+			this.leftSplit.expand();
+			return true;
+		}
+		if (settings.expandSidebar_onClickRightEdge
+			&& distanceFromRightEdge >= 0 && distanceFromRightEdge <= settings.rightEdgeClickDistance) {
+			// Already expanded: fall through to the caller's collapse logic.
+			if (!this.rightSplit.collapsed) return false;
+			this.rightSplit.expand();
+			return true;
+		}
+		return false;
 	}
 
 	// Feature: pane locking
