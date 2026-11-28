@@ -150,14 +150,15 @@ export default class AutoHidePlugin extends Plugin {
 			if (!settings.expandSidebar_onClickLeftEdge && !settings.expandSidebar_onClickRightEdge) {
 				return;
 			}
+			if (!this.rootSplitEl.contains(evt.target)) {
+				return;
+			}
+			if((evt.target as HTMLElement).closest(".view-header") !== null) {
+				return;
+			}
 			// Selecting text and releasing the mouse over the blank area also fires a
 			// click; a non-collapsed selection means the gesture was a drag, not a click.
 			if (document.getSelection()?.isCollapsed === false) {
-				return;
-			}
-			// Only trigger from the view content of the editor/viewer, not from toolbars, sidebars or ribbons.
-			const viewContent = (evt.target as HTMLElement).closest(".view-content");
-			if (viewContent == null || !this.rootSplitEl.contains(viewContent)) {
 				return;
 			}
 			const rootRect = this.rootSplitEl.getBoundingClientRect();
@@ -173,7 +174,7 @@ export default class AutoHidePlugin extends Plugin {
 			}
 		});
 
-		this.registerDomEvent(document, 'dblclick', async ({ target }) => {
+		this.registerDomEvent(this.app.workspace.containerEl, 'dblclick', async ({ target }) => {
 			if (!this.settings.lockSidebar_onDoubleClick || !(target instanceof Node)) {
 				return;
 			}
